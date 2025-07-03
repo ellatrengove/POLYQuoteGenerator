@@ -4,6 +4,7 @@ from io import BytesIO
 from datetime import datetime
 import requests
 from PIL import Image
+import os
 
 # Services list: name and price ex GST
 services = [
@@ -36,6 +37,7 @@ sales_rep = st.text_input("Sales Rep Name")
 poly_rep = st.selectbox("POLY Rep Name", ["Ella Trengove", "Lee Wallwork"])
 campaign = st.text_input("Client & Campaign Name")
 discount_percent = st.number_input("Discount % (off total)", min_value=0.0, max_value=100.0, value=0.0, step=0.1)
+notes_input = st.text_area("Notes")
 
 st.markdown("---")
 
@@ -93,55 +95,67 @@ def create_pdf():
     pdf = FPDF()
     pdf.add_page()
 
-    # Add POLY logo from URL
+    # Register fonts
+    pdf.add_font("CenturyGothic", "", "GOTHIC.TTF", uni=True)
+    pdf.add_font("CenturyGothic", "B", "GOTHICB.TTF", uni=True)
+
+    # POLY logo (top right)
     logo_url = "https://lh5.googleusercontent.com/proxy/IbV2YLQngNX15Du4cR7kJMTJqw4FxFAyEEXqajLlHPXjqMvFVtCQhcOeBvyO0x1UjlKWD6i8YmOBZO8xqqj2algzalD_zN-IOlFlvf2e-gNspwRv18uRwybHDRI"
     response = requests.get(logo_url)
     img = Image.open(BytesIO(response.content))
     img_path = "/tmp/poly_logo.png"
     img.save(img_path)
-    pdf.image(img_path, x=10, y=8, w=40)  # Adjust size & position
+    pdf.image(img_path, x=160, y=8, w=30)
 
-    pdf.set_xy(55, 15)  # Move right to align text next to logo
-    pdf.set_font("Arial", "B", 16)
+    pdf.set_xy(10, 15)
+    pdf.set_font("CenturyGothic", "B", 14)
     pdf.cell(0, 10, "POLY Creative Quote", ln=True)
-    pdf.ln(5)
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(0, 10, f"Date: {datetime.now().strftime('%A, %d %B %Y')}", ln=True)
-    pdf.cell(0, 10, "Quote #: 275", ln=True)
-    pdf.ln(10)
-    pdf.cell(0, 10, f"Sales Rep: {sales_rep}", ln=True)
-    pdf.cell(0, 10, f"POLY Rep: {poly_rep}", ln=True)
-    pdf.cell(0, 10, f"Client & Campaign: {campaign}", ln=True)
-    pdf.ln(10)
 
-    # Table header (no borders)
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(90, 10, "Service", border=0)
-    pdf.cell(30, 10, "Unit Price", border=0, align="R")
-    pdf.cell(20, 10, "Qty", border=0, align="R")
-    pdf.cell(40, 10, "Line Total", border=0, align="R")
+    pdf.set_font("CenturyGothic", "", 10)
+    pdf.cell(0, 8, f"Date: {datetime.now().strftime('%A, %d %B %Y')}", ln=True)
+    pdf.cell(0, 8, "Quote #: 275", ln=True)
+    pdf.ln(5)
+    pdf.cell(0, 8, f"Sales Rep: {sales_rep}", ln=True)
+    pdf.cell(0, 8, f"POLY Rep: {poly_rep}", ln=True)
+    pdf.cell(0, 8, f"Client & Campaign: {campaign}", ln=True)
+    pdf.ln(8)
+
+    # Table header
+    pdf.set_font("CenturyGothic", "B", 10)
+    pdf.cell(90, 8, "Service", border=0)
+    pdf.cell(30, 8, "Unit Price", border=0, align="R")
+    pdf.cell(20, 8, "Qty", border=0, align="R")
+    pdf.cell(40, 8, "Line Total", border=0, align="R")
     pdf.ln()
 
-    pdf.set_font("Arial", "", 12)
+    # Table rows
+    pdf.set_font("CenturyGothic", "", 10)
     for row in st.session_state.service_rows:
         line_total = row["price"] * row["qty"]
-        pdf.cell(90, 10, row["service"], border=0)
-        pdf.cell(30, 10, f"${row['price']:,.2f}", border=0, align="R")
-        pdf.cell(20, 10, str(row["qty"]), border=0, align="R")
-        pdf.cell(40, 10, f"${line_total:,.2f}", border=0, align="R")
+        pdf.cell(90, 8, row["service"], border=0)
+        pdf.cell(30, 8, f"${row['price']:,.2f}", border=0, align="R")
+        pdf.cell(20, 8, str(row["qty"]), border=0, align="R")
+        pdf.cell(40, 8, f"${line_total:,.2f}", border=0, align="R")
         pdf.ln()
 
-    # Totals (no borders)
-    pdf.cell(140, 10, "Subtotal", border=0)
-    pdf.cell(40, 10, f"${subtotal:,.2f}", border=0, align="R")
-    pdf.ln()
-    pdf.cell(140, 10, "Discount", border=0)
-    pdf.cell(40, 10, f"-${discount_amount:,.2f}", border=0, align="R")
-    pdf.ln()
-    pdf.cell(140, 10, "Total (ex GST)", border=0)
-    pdf.cell(40, 10, f"${total:,.2f}", border=0, align="R")
+    pdf.ln(4)
 
-    # Output PDF bytes
+    # Totals
+    pdf.cell(140, 8, "Subtotal", border=0)
+    pdf.cell(40, 8, f"${subtotal:,.2f}", border=0, align="R")
+    pdf.ln()
+    pdf.cell(140, 8, "Discount", border=0)
+    pdf.cell(40, 8, f"-${discount_amount:,.2f}", border=0, align="R")
+    pdf.ln()
+    pdf.cell(140, 8, "Total (ex GST)", border=0)
+    pdf.cell(40, 8, f"${total:,.2f}", border=0, align="R")
+    pdf.ln(10)
+
+    # Notes
+    pdf.set_font("CenturyGothic", "I", 10)
+    pdf.multi_cell(0, 8, f"Notes:\n{notes_input if notes_input else ' '}", border=0)
+
+    # Output PDF
     pdf_bytes = pdf.output(dest='S').encode('latin1')
     return BytesIO(pdf_bytes)
 
