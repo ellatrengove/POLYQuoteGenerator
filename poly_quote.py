@@ -126,10 +126,9 @@ def create_pdf():
     pdf.cell(40, 10, f"${total:,.2f}", border=1, align="R")
 
     # Output PDF to bytes buffer
-    pdf_output = BytesIO()
-    pdf.output(pdf_output)
-    pdf_output.seek(0)
-    return pdf_output
+pdf_bytes = pdf.output(dest='S').encode('latin1')
+return BytesIO(pdf_bytes)
+
 
 if st.button("Download PDF"):
     if not st.session_state.service_rows:
