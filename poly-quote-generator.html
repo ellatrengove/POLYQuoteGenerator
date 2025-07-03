@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>POLY Creative Quote</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Century+Gothic&display=swap');
+    body {
+      font-family: 'Century Gothic', Arial, sans-serif;
+      padding: 40px;
+      background: #fff;
+      color: #333;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo {
+      height: 120px;
+    }
+    .quote-meta {
+      margin: 20px 0;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+    }
+    input, select, button {
+      padding: 5px;
+      margin-top: 2px;
+      font-family: 'Century Gothic', Arial, sans-serif;
+    }
+    input, select {
+      width: 300px;
+    }
+    table {
+      width: 100%;
+      margin-top: 30px;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: left;
+    }
+    tfoot td {
+      font-weight: bold;
+    }
+    .add-service-btn {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <img src="https://lh5.googleusercontent.com/proxy/IbV2YLQngNX15Du4cR7kJMTJqw4FxFAyEEXqajLlHPXjqMvFVtCQhcOeBvyO0x1UjlKWD6i8YmOBZO8xqqj2algzalD_zN-IOlFlvf2e-gNspwRv18uRwybHDRI" class="logo" alt="POLY Logo">
+  <div>
+    <div id="quote-date"></div>
+    <div id="quote-number"></div>
+  </div>
+</div>
+
+<div class="quote-meta">
+  <label>Sales Rep Name: <input type="text" id="salesRep"></label>
+  <label>POLY Rep Name: 
+    <select id="polyRep">
+      <option>Ella Trengove</option>
+      <option>Lee Wallwork</option>
+    </select>
+  </label>
+  <label>Client & Campaign Name: <input type="text" id="campaign"></label>
+  <label>Discount % (off total): <input type="number" id="discount" value="0" onchange="updateTotals()"></label>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Service</th>
+      <th>Unit Price (ex GST)</th>
+      <th>Quantity</th>
+      <th>Line Total</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody id="quote-body"></tbody>
+  <tfoot>
+    <tr>
+      <td colspan="3">Subtotal</td>
+      <td id="subtotal">$0.00</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td colspan="3">Discount</td>
+      <td id="discount-amount">$0.00</td>
+      <td></td>
+    </tr>
+    <tr>
+      <td colspan="3">Total (ex GST)</td>
+      <td id="final-total">$0.00</td>
+      <td></td>
+    </tr>
+  </tfoot>
+</table>
+
+<button class="add-service-btn" onclick="addServiceRow()">Add Service</button>
+<button onclick="downloadPDF()">Download PDF</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+  const services = [
+    ["Animated Artwork Development", 4270],
+    ["Animating Artwork Only", 2074],
+    ["Static Artwork Development", 3538],
+    ["Animated Resizing (Different Orientation)", 854],
+    ["Animated Resizing (Same Orientation)", 732],
+    ["Static Resizes (Same Orientation)", 306],
+    ["Static Resizes (Different Orientation)", 408],
+  ];
+
+  const tbody = document.getElementById('quote-body');
+
+  function addServiceRow() {
+    const row = document.createElement('tr');
+    const serviceOptions = services.map(([name, price]) => `<option value="${price}">${name}</option>`).join('');
+    row.innerHTML = `
+      <td><select onchange="updateTotals(this)">${serviceOptions}</select></td>
+      <td class="unit-price">$${services[0][1].toLocaleString()}</td>
+      <td><input type="number" value="1" min="0" onchange="updateTotals()"></td>
+      <td class="line-total">$${services[0][1].toLocaleString()}</td>
+      <td><button onclick="removeRow(this)">Remove</button></td>
+    `;
+    tbody.appendChild(row);
+    updateTotals();
+  }
+
+  function removeRow(btn) {
+    btn.closest('tr').remove();
+    updateTotals();
+  }
+
+  function updateTotals() {
+    let subtotal = 0;
+    const rows = tbody.querySelectorAll("tr");
+    rows.forEach(row => {
+      const select = row.querySelector("select");
+      const price = parseFloat(select.value);
+      const qty = row.querySelector("input").valueAsNumber || 0;
+      const lineTotal = qty * price;
+      row.querySelector(".unit-price").textContent = `$${price.toLocaleString()}`;
+      row.querySelector(".line-total").textContent = `$${lineTotal.toLocaleString()}`;
+      subtotal += lineTotal;
+    });
+    const discountPercent = parseFloat(document.getElementById("discount").value || 0);
+    const discountAmount = subtotal * (discountPercent / 100);
+    const finalTotal = subtotal - discountAmount;
+
+    document.getElementById("subtotal").textContent = `$${subtotal.toLocaleString()}`;
+    document.getElementById("discount-amount").textContent = `-$${discountAmount.toLocaleString()}`;
+    document.getElementById("final-total").textContent = `$${finalTotal.toLocaleString()}`;
+  }
+
+  function downloadPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    doc.html(document.body, {
+      callback: function (doc) {
+        doc.save("POLY_Quote.pdf");
+      },
+      x: 10,
+      y: 10,
+      width: 190
+    });
+  }
+
+  document.getElementById("quote-date").textContent = `Date: ${new Date().toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+  document.getElementById("quote-number").textContent = "Quote #: 275";
+</script>
+
+</body>
+</html>
