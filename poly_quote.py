@@ -1,8 +1,9 @@
-
 import streamlit as st
 from fpdf import FPDF
 from io import BytesIO
 from datetime import datetime
+import requests
+from PIL import Image
 
 # Services list: name and price ex GST
 services = [
@@ -91,6 +92,16 @@ st.write(f"**Total (ex GST):** ${total:,.2f}")
 def create_pdf():
     pdf = FPDF()
     pdf.add_page()
+
+    # Add POLY logo from URL
+    logo_url = "https://lh5.googleusercontent.com/proxy/IbV2YLQngNX15Du4cR7kJMTJqw4FxFAyEEXqajLlHPXjqMvFVtCQhcOeBvyO0x1UjlKWD6i8YmOBZO8xqqj2algzalD_zN-IOlFlvf2e-gNspwRv18uRwybHDRI"
+    response = requests.get(logo_url)
+    img = Image.open(BytesIO(response.content))
+    img_path = "/tmp/poly_logo.png"
+    img.save(img_path)
+    pdf.image(img_path, x=10, y=8, w=40)  # Adjust size & position
+
+    pdf.set_xy(55, 15)  # Move right to align text next to logo
     pdf.set_font("Arial", "B", 16)
     pdf.cell(0, 10, "POLY Creative Quote", ln=True)
     pdf.ln(5)
@@ -103,34 +114,34 @@ def create_pdf():
     pdf.cell(0, 10, f"Client & Campaign: {campaign}", ln=True)
     pdf.ln(10)
 
-    # Table header
+    # Table header (no borders)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(90, 10, "Service", border=1)
-    pdf.cell(30, 10, "Unit Price", border=1, align="R")
-    pdf.cell(20, 10, "Qty", border=1, align="R")
-    pdf.cell(40, 10, "Line Total", border=1, align="R")
+    pdf.cell(90, 10, "Service", border=0)
+    pdf.cell(30, 10, "Unit Price", border=0, align="R")
+    pdf.cell(20, 10, "Qty", border=0, align="R")
+    pdf.cell(40, 10, "Line Total", border=0, align="R")
     pdf.ln()
 
     pdf.set_font("Arial", "", 12)
     for row in st.session_state.service_rows:
         line_total = row["price"] * row["qty"]
-        pdf.cell(90, 10, row["service"], border=1)
-        pdf.cell(30, 10, f"${row['price']:,.2f}", border=1, align="R")
-        pdf.cell(20, 10, str(row["qty"]), border=1, align="R")
-        pdf.cell(40, 10, f"${line_total:,.2f}", border=1, align="R")
+        pdf.cell(90, 10, row["service"], border=0)
+        pdf.cell(30, 10, f"${row['price']:,.2f}", border=0, align="R")
+        pdf.cell(20, 10, str(row["qty"]), border=0, align="R")
+        pdf.cell(40, 10, f"${line_total:,.2f}", border=0, align="R")
         pdf.ln()
 
-    # Totals
-    pdf.cell(140, 10, "Subtotal", border=1)
-    pdf.cell(40, 10, f"${subtotal:,.2f}", border=1, align="R")
+    # Totals (no borders)
+    pdf.cell(140, 10, "Subtotal", border=0)
+    pdf.cell(40, 10, f"${subtotal:,.2f}", border=0, align="R")
     pdf.ln()
-    pdf.cell(140, 10, "Discount", border=1)
-    pdf.cell(40, 10, f"-${discount_amount:,.2f}", border=1, align="R")
+    pdf.cell(140, 10, "Discount", border=0)
+    pdf.cell(40, 10, f"-${discount_amount:,.2f}", border=0, align="R")
     pdf.ln()
-    pdf.cell(140, 10, "Total (ex GST)", border=1)
-    pdf.cell(40, 10, f"${total:,.2f}", border=1, align="R")
+    pdf.cell(140, 10, "Total (ex GST)", border=0)
+    pdf.cell(40, 10, f"${total:,.2f}", border=0, align="R")
 
-    # Return PDF bytes properly
+    # Output PDF bytes
     pdf_bytes = pdf.output(dest='S').encode('latin1')
     return BytesIO(pdf_bytes)
 
