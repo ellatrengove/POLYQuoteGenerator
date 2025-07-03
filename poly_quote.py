@@ -56,7 +56,12 @@ if st.button("Add Service"):
 for i, row in enumerate(st.session_state.service_rows):
     cols = st.columns([4, 2, 2, 1])
     with cols[0]:
-        service_name = st.selectbox(f"Service {i+1}", [s[0] for s in services], index=[s[0] for s in services].index(row["service"]), key=f"service_{i}")
+        service_name = st.selectbox(
+            f"Service {i+1}",
+            [s[0] for s in services],
+            index=[s[0] for s in services].index(row["service"]),
+            key=f"service_{i}"
+        )
     with cols[1]:
         price = dict(services)[service_name]
         st.write(f"${price:,.2f}")
@@ -125,14 +130,18 @@ def create_pdf():
     pdf.cell(140, 10, "Total (ex GST)", border=1)
     pdf.cell(40, 10, f"${total:,.2f}", border=1, align="R")
 
-    # Output PDF to bytes buffer
-pdf_bytes = pdf.output(dest='S').encode('latin1')
-return BytesIO(pdf_bytes)
-
+    # Return PDF bytes properly
+    pdf_bytes = pdf.output(dest='S').encode('latin1')
+    return BytesIO(pdf_bytes)
 
 if st.button("Download PDF"):
     if not st.session_state.service_rows:
         st.warning("Please add at least one service before downloading.")
     else:
         pdf_data = create_pdf()
-        st.download_button("Download POLY Quote PDF", data=pdf_data, file_name="POLY_Quote.pdf", mime="application/pdf")
+        st.download_button(
+            label="Download POLY Quote PDF",
+            data=pdf_data,
+            file_name="POLY_Quote.pdf",
+            mime="application/pdf"
+        )
