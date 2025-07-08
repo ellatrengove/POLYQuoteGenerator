@@ -4,7 +4,6 @@ from io import BytesIO
 from datetime import datetime
 import requests
 from PIL import Image
-import os
 
 # Services list: name and price ex GST
 services = [
@@ -19,7 +18,7 @@ services = [
 
 st.set_page_config(page_title="POLY Creative Quote", layout="wide")
 
-# Title and header with logo and date
+# Title and header
 col1, col2 = st.columns([1, 3])
 with col1:
     st.image(
@@ -41,7 +40,7 @@ notes_input = st.text_area("Notes")
 
 st.markdown("---")
 
-# Session state to store services table
+# Service rows in session state
 if "service_rows" not in st.session_state:
     st.session_state.service_rows = []
 
@@ -51,22 +50,31 @@ def add_service():
 def remove_service(idx):
     st.session_state.service_rows.pop(idx)
 
-# Add service button
 if st.button("Add Service"):
     add_service()
 
-# Services table editing
+# Services editor
 for i, row in enumerate(st.session_state.service_rows):
     cols = st.columns([4, 2, 2, 1])
     with cols[0]:
-        service_name = st.selectbox(
+        service_options = [s[0] for s in services] + ["Custom (Enter Below)"]
+        selected = st.selectbox(
             f"Service {i+1}",
-            [s[0] for s in services],
-            index=[s[0] for s in services].index(row["service"]),
+            service_options,
+            index=service_options.index(row["service"]) if row["service"] in service_options else len(service_options) - 1,
             key=f"service_{i}"
         )
+
+        if selected == "Custom (Enter Below)":
+            custom_desc = st.text_input(f"Custom Service Description {i+1}", value=row.get("custom_desc", ""), key=f"custom_desc_{i}")
+            custom_price = st.number_input(f"Custom Price {i+1}", min_value=0.0, value=row.get("price", 0.0), step=10.0, key=f"custom_price_{i}")
+            service_name = custom_desc
+            price = custom_price
+        else:
+            service_name = selected
+            price = dict(services)[service_name]
+
     with cols[1]:
-        price = dict(services)[service_name]
         st.write(f"${price:,.2f}")
     with cols[2]:
         qty = st.number_input(f"Qty {i+1}", min_value=0, value=row["qty"], step=1, key=f"qty_{i}")
@@ -75,12 +83,14 @@ for i, row in enumerate(st.session_state.service_rows):
             remove_service(i)
             st.experimental_rerun()
 
-    # Update values in session state
+    # Save values
     st.session_state.service_rows[i]["service"] = service_name
     st.session_state.service_rows[i]["price"] = price
     st.session_state.service_rows[i]["qty"] = qty
+    if selected == "Custom (Enter Below)":
+        st.session_state.service_rows[i]["custom_desc"] = custom_desc
 
-# Calculate totals
+# Totals
 subtotal = sum(row["price"] * row["qty"] for row in st.session_state.service_rows)
 discount_amount = subtotal * (discount_percent / 100)
 total = subtotal - discount_amount
@@ -95,32 +105,33 @@ def create_pdf():
     pdf = FPDF()
     pdf.add_page()
 
-    # Register fonts
+    # Fonts
     pdf.add_font("CenturyGothic", "", "GOTHIC.TTF", uni=True)
     pdf.add_font("CenturyGothic", "B", "GOTHICB.TTF", uni=True)
 
-    # POLY logo (top right)
+    # Logo
     logo_url = "https://lh5.googleusercontent.com/proxy/IbV2YLQngNX15Du4cR7kJMTJqw4FxFAyEEXqajLlHPXjqMvFVtCQhcOeBvyO0x1UjlKWD6i8YmOBZO8xqqj2algzalD_zN-IOlFlvf2e-gNspwRv18uRwybHDRI"
     response = requests.get(logo_url)
     img = Image.open(BytesIO(response.content))
     img_path = "/tmp/poly_logo.png"
     img.save(img_path)
+    pdf.image(img_path, x=10, y=8, w=40)
     pdf.image(img_path, x=160, y=8, w=30)
 
-    pdf.set_xy(10, 15)
+    # Header
     pdf.set_font("CenturyGothic", "B", 14)
+    pdf.ln(30)
     pdf.cell(0, 10, "POLY Creative Quote", ln=True)
-
-    pdf.set_font("CenturyGothic", "", 10)
-    pdf.cell(0, 8, f"Date: {datetime.now().strftime('%A, %d %B %Y')}", ln=True)
-    pdf.cell(0, 8, "Quote #: 275", ln=True)
     pdf.ln(5)
-    pdf.cell(0, 8, f"Sales Rep: {sales_rep}", ln=True)
-    pdf.cell(0, 8, f"POLY Rep: {poly_rep}", ln=True)
-    pdf.cell(0, 8, f"Client & Campaign: {campaign}", ln=True)
-    pdf.ln(8)
+    pdf.set_font("Arial", "", 12)
+    pdf.cell(0, 10, f"Date: {datetime.now().strftime('%A, %d %B %Y')}", ln=True)
+    pdf.cell(0, 10, "Quote #: 275", ln=True)
+    pdf.cell(0, 10, f"Sales Rep: {sales_rep}", ln=True)
+    pdf.cell(0, 10, f"POLY Rep: {poly_rep}", ln=True)
+    pdf.cell(0, 10, f"Client & Campaign: {campaign}", ln=True)
+    pdf.ln(10)
 
-    # Table header
+    # Table headers
     pdf.set_font("CenturyGothic", "B", 10)
     pdf.cell(90, 8, "Service", border=0)
     pdf.cell(30, 8, "Unit Price", border=0, align="R")
@@ -138,9 +149,8 @@ def create_pdf():
         pdf.cell(40, 8, f"${line_total:,.2f}", border=0, align="R")
         pdf.ln()
 
-    pdf.ln(4)
-
     # Totals
+    pdf.ln(5)
     pdf.cell(140, 8, "Subtotal", border=0)
     pdf.cell(40, 8, f"${subtotal:,.2f}", border=0, align="R")
     pdf.ln()
@@ -155,10 +165,11 @@ def create_pdf():
     pdf.set_font("CenturyGothic", "I", 10)
     pdf.multi_cell(0, 8, f"Notes:\n{notes_input if notes_input else ' '}", border=0)
 
-    # Output PDF
+    # Return as BytesIO
     pdf_bytes = pdf.output(dest='S').encode('latin1')
     return BytesIO(pdf_bytes)
 
+# Download button
 if st.button("Download PDF"):
     if not st.session_state.service_rows:
         st.warning("Please add at least one service before downloading.")
